@@ -14,8 +14,29 @@ def get_titles_from_search_results(filename):
 
     [('Book title 1', 'Author 1'), ('Book title 2', 'Author 2')...]
     """
-
-    pass
+    # have to open file before reading it into soup format
+    with open(filename, 'r') as f:
+        soup = BeautifulSoup(f, 'html.parser')  
+    # finding the table of titles, which is the first table on the page
+    table = soup.find('table', class_ = 'tableList')
+    # getting the rows, since each row has its own title and author
+    rows = table.find_all('tr')
+    titles = []
+    for row in rows:
+        td_list = row.find_all('td')
+        # there are 3 td_lists in each row -- the 2nd td_list has the title and author we're looking for
+        desired_td = td_list[1]
+        title_link = desired_td.find('a', class_ = 'bookTitle')
+        author_link = desired_td.find('a', class_ = 'authorName')
+        title = title_link.text
+        # we need to strip these titles and authors of \n
+        title = title.strip()
+        author = author_link.text
+        author = author.strip()
+        # putting it all into a tuple before adding to the list
+        tup = (title, author)
+        titles.append(tup)
+    return titles
 
 
 def get_search_links():
@@ -31,9 +52,33 @@ def get_search_links():
     “https://www.goodreads.com/book/show/kdkd".
 
     """
+    # forming a request since we're scraping a website
+    url = 'https://www.goodreads.com/search?q=fantasy&qid=NwUsLiA2Nc'
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, 'html.parser')
 
-    pass
+    # getting the first table on the page
+    table = soup.find('table', class_ = 'tableList')
+    rows = table.find_all('tr')
+    links = []
 
+    # keeping this for later since the href values are relative links, not absolute
+    start_of_link = 'https://www.goodreads.com'
+
+    for row in rows[:10]:
+        td_list = row.find_all('td')
+        # the second of three td's has the title and link we're looking for
+        desired_td = td_list[1]
+        title_link = desired_td.find('a', class_ = 'bookTitle')
+        # index into the href attribute, as if its a dictionary, to find the relative link
+        end_of_link = title_link['href']
+        # only go through the first 10 links
+        # make sure the relative link is actually relative to goodreads
+        if end_of_link[:11] == '/book/show/':
+            full_link = start_of_link + end_of_link
+            links.append(full_link)
+
+    return links
 
 def get_book_summary(book_url):
     """
@@ -48,8 +93,26 @@ def get_book_summary(book_url):
     You can easily capture CSS selectors with your browser's inspector window.
     Make sure to strip() any newlines from the book title and number of pages.
     """
+    # form our request for the url provided
+    r = requests.get(book_url)
+    soup = BeautifulSoup(r.text, 'html.parser')
 
-    pass
+    # this title has a unique id so we can call that immediately
+    title_tag = soup.find('h1', {'id': 'bookTitle'})
+    # all returns should be stripped of newline characters
+    title = title_tag.text.strip()
+    # our desired author name is inside a div with a unique id
+    author_tag = soup.find('div', {'id': 'bookAuthors'})
+    # inside the div, there's 2 spans and the 2nd span has our desired author name
+    spans = author_tag.find_all('span')
+    author = spans[1].text.strip()
+    # the number of pages has a very unique attribute value that we can call directly
+    num_pages_tag = soup.find('span', {'itemprop': 'numberOfPages'})
+    num_pages = num_pages_tag.text.strip()
+    # package into a tuple to be returned
+    tup = (title, author, num_pages)
+
+    return tup
 
 
 def summarize_best_books(filepath):
@@ -63,7 +126,33 @@ def summarize_best_books(filepath):
     ("Fiction", "The Testaments (The Handmaid's Tale, #2)", "https://www.goodreads.com/choiceawards/best-fiction-books-2020") 
     to your list of tuples.
     """
-    pass
+    with open(filepath, 'r') as f:
+        # get the file contents once it's open
+        soup = BeautifulSoup(f, 'html.parser') 
+    
+    # the category container has a unique classname
+    categories_section = soup.find('div', class_ = 'categoryContainer') 
+    # copy-pasted class names from inspect element
+    categories = categories_section.find_all('div', class_ = 'category clearFix')
+    # initialize accumulator list
+    best_book = []
+    
+    for category in categories:
+        url_tag = category.find('a')
+        # the url is the href to the genre summary
+        url = url_tag['href']
+        title_tag = category.find('h4', class_ = 'category__copy')
+        # strip newline characters
+        title = title_tag.text.strip()
+        image_tag = category.find('img', class_ = 'category__winnerImage')
+        # the alt text on the book image has the best_book title
+        book = image_tag['alt']
+        tup = (title, book, url)
+        best_book.append(tup)
+
+    return best_book
+
+
 
 
 def write_csv(data, filename):
@@ -115,7 +204,7 @@ class TestCases(unittest.TestCase):
         # check that the first book and author tuple is correct (open search_results.htm and find it)
 
         # check that the last title is correct (open search_results.htm and find it)
-
+        pass
     def test_get_search_links(self):
         # check that TestCases.search_urls is a list
 
@@ -125,7 +214,7 @@ class TestCases(unittest.TestCase):
         # check that each URL in the TestCases.search_urls is a string
         # check that each URL contains the correct url for Goodreads.com followed by /book/show/
 
-
+        pass
     def test_get_book_summary(self):
         # create a local variable – summaries – a list containing the results from get_book_summary()
         # for each URL in TestCases.search_urls (should be a list of tuples)
@@ -141,7 +230,7 @@ class TestCases(unittest.TestCase):
             # check that the third element in the tuple, i.e. pages is an int
 
             # check that the first book in the search has 337 pages
-
+        pass
 
     def test_summarize_best_books(self):
         # call summarize_best_books and save it to a variable
@@ -156,7 +245,7 @@ class TestCases(unittest.TestCase):
 
         # check that the last tuple is made up of the following 3 strings: 'Picture Books', 'Antiracist Baby', 'https://www.goodreads.com/choiceawards/best-picture-books-2020'
 
-
+        pass
     def test_write_csv(self):
         # call get_titles_from_search_results on search_results.htm and save the result to a variable
 
@@ -173,11 +262,10 @@ class TestCases(unittest.TestCase):
 
         # check that the last row is 'Harry Potter: The Prequel (Harry Potter, #0.5)', 'J.K. Rowling'
 
-
+        pass
 
 if __name__ == '__main__':
-    print(extra_credit("extra_credit.htm"))
-    unittest.main(verbosity=2)
-
-
+    # print(extra_credit("extra_credit.htm"))
+    # unittest.main(verbosity=2)
+    summarize_best_books('best_books_2020.htm')
 
